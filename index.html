@@ -6,40 +6,60 @@ th {
 </style></head>
 <body>
 <center>
-<h1>SteamIDTool</h1>
+<h1>SteamID Tool</h1>
+<p>This page is still in development, expect bugs.</p>
 <table>
 	<tr><th>AccountID:</th>
-	<td><samp id="IDA">TEST ME1</samp></td>
-	<td id=""><button onClick="ccopy('IDA')">Copy &#x1F4CB;</button></td></tr>
+	<td><samp id="IDA"></samp></td>
+	<td id=""><button onClick="cpy('IDA')">Copy &#x1F4CB;</button></td></tr>
 
 	<tr><th>SteamID2:</th>
-	<td><samp id="ID2">TEST ME2</samp></td>
-	<td id=""><button onClick="ccopy('ID2')">Copy &#x1F4CB;</button></td></tr>
+	<td><samp id="ID2"></samp></td>
+	<td id=""><button onClick="cpy('ID2')">Copy &#x1F4CB;</button></td></tr>
 
 	<tr><th>SteamID3:</th>
-	<td><samp id="ID3">TEST ME3</samp></td>
-	<td id=""><button onClick="ccopy('ID3')">Copy &#x1F4CB;</button></td></tr>
+	<td><samp id="ID3"></samp></td>
+	<td id=""><button onClick="cpy('ID3')">Copy &#x1F4CB;</button></td></tr>
 
 	<tr><th>SteamID64:</th>
-	<td><samp id="ID64">TEST ME4</samp></td>
-	<td id=""><button onClick="ccopy('ID64')">Copy &#x1F4CB;</button></td></tr>
+	<td><samp id="ID6"></samp></td>
+	<td id=""><button onClick="cpy('ID6')">Copy &#x1F4CB;</button></td></tr>
 
 	<tr><th>Link:</th>
-	<td><samp id="IDL">TEST ME5</samp></td>
-	<td id=""><button onClick="ccopy('IDL')">Copy &#x1F4CB;</button></td></tr>
+	<td><samp id="IDL"></samp></td>
+	<td id=""><button onClick="cpy('IDL')">Copy &#x1F4CB;</button></td></tr>
 
 	<tr><th>Date:</th>
-	<td><samp id="IDD">TEST ME6</samp></td>
-	<td id=""><button onClick="ccopy('IDD')">Copy &#x1F4CB;</button></td></tr>
+	<td><samp id="IDD"></samp></td>
+	<td id=""><button onClick="cpy('IDD')">Copy &#x1F4CB;</button></td></tr>
 
 	<tr><th>Input:</th>
-	<td><input id="inp" onInput="update()" value="76561198174025721"></td>
+	<td><input id="inp" onInput="update()" value="[U:1:108308806]"></td>
 	<td></tr>
 </table>
 <br>
 <br>
-<br>
-<p>This page is still in progress, there are still some bugs to iron out.</p>
+<h2>Mass/Batch conversion:</h2>
+<table border="1px">
+<tr><th>Input:</th><th>Output:</th></tr>
+<tr>
+<td><textarea cols="55" rows="10" id="bat1" onchange="bupdate()">https://steamcommunity.com/profiles/76561198068574534
+</textarea></td>
+<td><textarea cols="55" rows="10" id="bat2" readonly></textarea></td>
+</tr>
+<tr><td>
+<label for="fmt">Format:</label>
+<select name="fmt" id="fmtid" onChange="bupdate()">
+<option value="1">AccountID - 108308806</option>
+<option value="2">SteamID2 - STEAM_1:0:54154403</option>
+<option value="3" selected="selected">SteamID3 - [U:1:108308806]</option>
+<option value="6">SteamID64 - 76561198068574534</option>
+<option value="l">Link - profiles/76561198068574534</option>
+<option value="d">Date - 2012 Aug 1 (Estimated)</option>
+</select>
+</td>
+<td><button onclick="bupdate()">Update &#x1f504;</button></td></tr>
+</table>
 </center>
 <script>
 const data_set = [
@@ -341,78 +361,130 @@ const data_set = [
 	1921200005, // Prediction
 ];
 
-function ccopy(id)
+function get(id)
 {
-	navigator.clipboard.writeText(document.getElementById(id).innerHTML)
+	return document.getElementById(id)
 }
 
-function atoi(s)
+function cpy(id)
 {
-	let num = BigInt(0);
-	for (let i = 0; i < s.length; i++) {
-		if (s[i] >= '0' && s[i] <= '9') {
-			// num = (num * 10 + Number(s[i])) & 0xffffffff
-			num *= BigInt(10)
-			num += BigInt(Number(s[i]))
-			num &= BigInt(0xffffffff)
-		} else {
-			break
+	navigator.clipboard.writeText(get(id).innerHTML)
+}
+
+function parse_ids(s, single)
+{
+	function skip_ni(s, i)
+	{
+		while (i < s.length && (s[i] == ' ' || s[i] == '\t' || s[i] == ',')) {
+			i++
+		}
+		return i
+	}
+
+	function skip_to(s, i, c)
+	{
+		while (i < s.length && s[i] != c) { i++ }
+		return i
+	}
+
+	function parse_int(s, i)
+	{
+		let num = BigInt(0);
+		while (i < s.length) {
+			if (s[i] >= '0' && s[i] <= '9') {
+				num *= BigInt(10)
+				num += BigInt(Number(s[i]))
+				num &= BigInt(0xffffffff)
+			} else {
+				break
+			}
+			i++
+		}
+		return [Number(num), i+1]
+	}
+
+	let idlist = [];
+	let tmp = [0,0];
+	let idx = 0;
+
+	// I'm allowing the user to check an ID even if they're
+	// missing the first couple of characters, in case of a
+	// failed copy from a selection by mouse.
+	while (idx < s.length) {
+		idx = skip_ni(s, idx)
+		if (tmp[0] > 0 && single) { break }
+		tmp[0] = 0
+		switch (s[idx]) {
+		case 'S':
+		case 'T':
+		case 'E': // ID2
+		case 'A':
+		case 'M':
+		case '_':
+			idx = skip_to(s, idx, ':') + 1
+			tmp = parse_int(s, idx+2)
+			let acc = Number(s[idx] - '0') + Number(tmp[0] << 1)
+			idx = tmp[1]
+			tmp[0] = acc
+			idlist.push(acc)
+			break;
+		case '[':
+		case 'U': // ID3
+			idx = skip_to(s, idx, ':')
+		case ':':
+			idx++
+			idx = skip_to(s, idx, ':') + 1
+			tmp = parse_int(s, idx)
+			idx = tmp[1]
+			idlist.push(tmp[0])
+			break;
+		case 'h':
+		case 'w': // Web link
+		case 's':
+			idx = skip_to(s, idx, '7') // Bit of a hack
+		default: // ID64
+			tmp = parse_int(s, idx)
+			idx = tmp[1]
+			if (tmp[0] > 0) { idlist.push(tmp[0]) }
+			break;
 		}
 	}
-	return Number(num)
-}
 
-function skip_to_num(s)
-{
-	for (let i = 0; i < s.length; i++) {
-		if (s[i] >= '0' && s[i] <= '9') {
-			return i
-		}
-	}
-	return 0
-}
-
-function skip_ws(s)
-{
-	let i = 0
-	for (; i < s.length && s[i] == ' ' && s[i] == '\t'; i++) {
-	}
-	return i
-}
-
-function bsearch(id)
-{
-	let l = 0
-	let m = Math.floor(data_set.length / 2)
-	let r = data_set.length-1
-	while (l <= r) {
-		if (id == data_set[m]) {
-			return m
-		} else if (id > data_set[m]) {
-			l = m + 1
-		} else {
-			r = m - 1
-		}
-		// m = l + (r - l) / 2
-		m = Math.ceil(l + (r - l) / 2)
-	}
-	return m
-}
-
-function range(a, b, t)
-{
-	if (t >= b) { return 1.0 }
-	if (t <= a) { return 0.0 }
-	return (t-a)/(b-a)
-}
-
-function llerp(a, b, f)
-{
-	return a + (b - a) * f
+	return idlist
 }
 
 function edate(id)
 {
+	function bsearch(id)
+	{
+		let l = 0
+		let m = Math.floor(data_set.length / 2)
+		let r = data_set.length-1
+		while (l <= r) {
+			if (id == data_set[m]) {
+				return m
+			} else if (id > data_set[m]) {
+				l = m + 1
+			} else {
+				r = m - 1
+			}
+			m = Math.ceil(l + (r - l) / 2)
+		}
+		return m
+	}
+
+	function range(a, b, t)
+	{
+		if (t >= b) { return 1.0 }
+		if (t <= a) { return 0.0 }
+		return (t-a)/(b-a)
+	}
+
+	function llerp(a, b, f)
+	{
+		return a + (b - a) * f
+	}
+
 	let mdays = [
 		31, 28, 31, 30, 31, 30,
 		31, 31, 30, 31, 30, 31
@@ -436,46 +508,54 @@ function edate(id)
 		year = Math.floor((idx - 1) / 12) + 2003
 		month = Math.floor((idx - 1) % 12)
 	}
-	console.log('Idx is:', idx)
 	day = Math.floor(llerp(start, mdays[idx % 12],
 		range(data_set[idx-1], data_set[idx], id)))
 
 	return [year, month, day]
 }
 
-update() // Init.
-function update()
+function sid_format(acc, f)
 {
+	const li = 'https://steamcommunity.com/profiles/'
 	const month = [
 		"Jan", "Feb", "Mar", "Apr",
 		"May", "Jun", "Jul", "Aug",
 		"Sep", "Oct", "Nov", "Dec"
 	];
-	val = document.getElementById("inp").value
-
-	let acc = 0
-	val = val.slice(skip_ws(val))
-	switch(val[0]) {
-		case 'S', 'T', 'E', 'A', 'M':
-			break;
-		default: // ID64
-			acc = atoi(val)
-			break;
+	if (typeof(acc) != 'number') { return ' (Invalid input) ' }
+	switch (f) {
+	case  1 : return String(acc)
+	case  2 : return 'STEAM_1:' + String(acc & 1) + ':' + String(acc >> 1)
+	case  3 : return '[U:1:' + String(acc) + ']'
+	case  6 : return BigInt('76561197960265728') + BigInt(acc)
+	case 'l': return li + String(BigInt('76561197960265728') + BigInt(acc))
+	case 'd': let arr = edate(acc); return arr[0] +' '+ month[arr[1]] +' '+ String(arr[2]) +' (Estimated)'
 	}
-	console.log(acc)
-	console.log(atoi(document.getElementById("inp").value))
-	console.log('------------')
-	// console.clear()
-	// console.log(atoi(val.slice(skip_ws(val))))
+}
 
-	document.getElementById("IDA").innerHTML = acc
-	document.getElementById("ID2").innerHTML = 'STEAM_1:' + String(acc & 1) + ':' + String(acc >> 1)
-	document.getElementById("ID3").innerHTML = '[U:1:' + String(acc) + ']'
-	document.getElementById("ID64").innerHTML = BigInt('76561197960265728') + BigInt(acc)
-	document.getElementById("IDL").innerHTML = 'https://steamcommunity.com/profiles/' + String(BigInt('76561197960265728') + BigInt(acc))
-	let arr = edate(acc)
-	console.log(arr)
-	document.getElementById("IDD").innerHTML = arr[0] + ' ' + month[arr[1]] + ' ' + String(arr[2])
+update() // Init.
+function update()
+{
+	let lid = parse_ids(get("inp").value, true)
+	get('IDA').innerHTML = sid_format(lid[0],  1)
+	get('ID2').innerHTML = sid_format(lid[0],  2)
+	get('ID3').innerHTML = sid_format(lid[0],  3)
+	get('ID6').innerHTML = sid_format(lid[0],  6)
+	get('IDL').innerHTML = sid_format(lid[0], 'l')
+	get('IDD').innerHTML = sid_format(lid[0], 'd')
+}
+
+bupdate() // Init.
+function bupdate()
+{
+	let lid = parse_ids(get("bat1").value)
+	let opt = get("fmtid").value
+	let out = ""
+	if (opt >= '0' && opt <= '9') { opt -= '0' }
+	for (let i = 0; i < lid.length; i++) {
+		out += sid_format(lid[i], opt) + "\n"
+	}
+	get("bat2").innerHTML = out
 }
 </script>
 </body>
